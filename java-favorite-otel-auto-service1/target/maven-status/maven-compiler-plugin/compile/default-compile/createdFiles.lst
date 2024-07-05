@@ -1,0 +1,3 @@
+com/movieapi/ApiServlet.class
+com/movieapi/config/RestTemplateConfig.class
+com/movieapi/FavoriteApplication.class
