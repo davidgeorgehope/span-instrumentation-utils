@@ -6,6 +6,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 
+import java.util.Optional;
+
 public class SpanCreateStrategy extends SpanProcessingStrategy {
 
     public SpanCreateStrategy(String returnOrArgument, boolean addBaggage, String className, String methodName, String type) {
@@ -13,17 +15,20 @@ public class SpanCreateStrategy extends SpanProcessingStrategy {
     }
 
     @Override
-    public Span enterStrategy(Object argument) {
+    public Optional<Span> enterStrategy(Object argument) {
         Tracer tracer = GlobalOpenTelemetry.getTracer("spanrename-demo", "semver:1.0.0");
         Span span = tracer.spanBuilder(argument.toString()).startSpan();
-        return span;
+        return Optional.of(span);
     }
 
     @Override
-    public void exitStrategy(Object returned, Throwable throwable, Span span) {
-        if (throwable != null) {
-            span.setStatus(StatusCode.ERROR, "Exception thrown in method");
+    public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
+        if(span.isPresent()) {
+
+            if (throwable != null) {
+                span.get().setStatus(StatusCode.ERROR, "Exception thrown in method");
+            }
+            span.get().end();
         }
-        span.end();
     }
 }

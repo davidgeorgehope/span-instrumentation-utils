@@ -8,6 +8,8 @@ import org.davidgeorgehope.spanrename.strategies.SpanCreateStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class SpanCreateStrategyTest {
@@ -25,8 +27,8 @@ public class SpanCreateStrategyTest {
     public void testEnterStrategy() {
         Span span = tracer.spanBuilder("testSpan").startSpan();
         try (Scope scope = span.makeCurrent()) {
-            Span result = strategy.enterStrategy("testSpan");
-            assertNotNull(result);
+            Optional<Span> result = strategy.enterStrategy("testSpan");
+            assertNotNull(result.get());
         } finally {
             span.end();
         }

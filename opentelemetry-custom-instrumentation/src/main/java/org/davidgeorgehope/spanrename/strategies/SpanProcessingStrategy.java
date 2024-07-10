@@ -7,6 +7,7 @@ import io.opentelemetry.api.trace.Span;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 public abstract class SpanProcessingStrategy {
@@ -46,7 +47,7 @@ public abstract class SpanProcessingStrategy {
         return type;
     }
 
-    public Span enterMethod(Object[] allArguments){
+    public Optional<Span> enterMethod(Object[] allArguments){
         Object objectToProcess;
         try {
             int argumentIndex = Integer.parseInt(getReturnOrArgument().split("argument_")[1]);
@@ -58,7 +59,7 @@ public abstract class SpanProcessingStrategy {
 
         return enterStrategy(getObject(objectToProcess));
     }
-    public void exitMethod(Object returned, Throwable throwable, Span span){
+    public void exitMethod(Object returned, Throwable throwable, Optional<Span> span){
         exitStrategy(getObject(returned),throwable,span);
     }
 
@@ -136,8 +137,8 @@ public abstract class SpanProcessingStrategy {
         }
     }
 
-    public abstract Span enterStrategy(Object arguments);
+    public abstract Optional<Span> enterStrategy(Object arguments);
 
-    public abstract void exitStrategy(Object returned, Throwable throwable, Span span);
+    public abstract void exitStrategy(Object returned, Throwable throwable, Optional<Span> span);
 
 }

@@ -2,6 +2,7 @@ package org.davidgeorgehope.spanrename.strategies;
 
 import io.opentelemetry.api.trace.Span;
 
+import java.util.Optional;
 import java.util.logging.Logger;
 
 public class DataCollectorStrategy extends SpanProcessingStrategy {
@@ -13,16 +14,16 @@ public class DataCollectorStrategy extends SpanProcessingStrategy {
     }
 
     @Override
-    public Span enterStrategy(Object argument) {
+    public Optional<Span> enterStrategy(Object argument) {
         Span currentSpan = Span.current();
         String attributeName = getMethodName() + "_" + argument.getClass().getName();
         setSpanAttribute(currentSpan, attributeName, argument);
         addBaggage(attributeName, argument.toString());
-        return null;
+        return Optional.empty();
     }
 
     @Override
-    public void exitStrategy(Object returned, Throwable throwable, Span span) {
+    public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
         Span currentSpan = Span.current();
        setSpanAttribute(currentSpan, getMethodName(), returned);
        addBaggage(getMethodName(), returned.toString());

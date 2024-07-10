@@ -5,6 +5,8 @@ import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SpanProcessingStrategyTest {
@@ -15,12 +17,12 @@ public class SpanProcessingStrategyTest {
     public void setup() {
         strategy = new SpanProcessingStrategy("argument_0.getValue()", true, "TestClassName", "testMethod", "type") {
             @Override
-            public Span enterStrategy(Object arguments) {
+            public Optional<Span> enterStrategy(Object arguments) {
                 return null;
             }
 
             @Override
-            public void exitStrategy(Object returned, Throwable throwable, Span span) {
+            public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
             }
         };
     }
