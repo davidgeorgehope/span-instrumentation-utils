@@ -2,10 +2,13 @@ package org.davidgeorgehope.spanrename.config;
 
 import org.davidgeorgehope.spanrename.URLConfig;
 import org.davidgeorgehope.spanrename.factories.SpanProcessingStrategyFactory;
+import org.davidgeorgehope.spanrename.strategies.SpanCreateStrategy;
 import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -15,7 +18,7 @@ public class SpanProcessorConfigLoader {
     private static SpanProcessorConfigLoader instance;
     private static Logger logger = Logger.getLogger(SpanProcessorConfigLoader.class.getName());
 
-    private final Map<String, SpanProcessingStrategy> instrumentationConfigs = new HashMap<>();
+    private final Map<String, List<SpanProcessingStrategy>> instrumentationConfigs = new HashMap<>();
     private final Map<String, URLConfig> urlConfigs = new HashMap<>();
 
     // Private constructor to prevent instantiation
@@ -35,7 +38,7 @@ public class SpanProcessorConfigLoader {
         return instance;
     }
 
-    public SpanProcessingStrategy getConfig(String className, String methodName) {
+    public List<SpanProcessingStrategy> getConfig(String className, String methodName) {
         return instrumentationConfigs.getOrDefault(className + "." + methodName, null);
     }
 
@@ -103,9 +106,18 @@ public class SpanProcessorConfigLoader {
 
                 if (currentClass != null && currentMethod != null && returnOrArgument != null && addBaggage != null && type != null) {
 
-                    SpanProcessingStrategy config = SpanProcessingStrategyFactory.createStrategy(returnOrArgument, addBaggage, currentClass, currentMethod, type);
-                    instrumentationConfigs.put(currentClass + "." + currentMethod, config);
-                    logger.warning("loadYamlConfig " + currentClass + " " + currentMethod);
+                    String key = currentClass + "." + currentMethod;
+
+                    // Check for existing spancreate strategy
+                    boolean spanCreateExists = instrumentationConfigs.containsKey(key) &&
+                            instrumentationConfigs.get(key).stream().anyMatch(config -> config instanceof SpanCreateStrategy);
+
+                    if (type.equalsIgnoreCase("spancreate") && spanCreateExists) {
+                        logger.warning("Ignoring additional spancreate strategy for " + key);
+                    } else {
+                        SpanProcessingStrategy config = SpanProcessingStrategyFactory.createStrategy(returnOrArgument, addBaggage, currentClass, currentMethod, type);
+                        instrumentationConfigs.computeIfAbsent(key, k -> new ArrayList<>()).add(config);
+                    }
 
                     // Reset for next block
                     currentClass = null;
@@ -139,7 +151,7 @@ public class SpanProcessorConfigLoader {
         }
     }
 
-    public Map<String, SpanProcessingStrategy> getAllInstrumentationConfigs() {
+    public Map<String, List<SpanProcessingStrategy>> getAllInstrumentationConfigs() {
         return instrumentationConfigs;
     }
 

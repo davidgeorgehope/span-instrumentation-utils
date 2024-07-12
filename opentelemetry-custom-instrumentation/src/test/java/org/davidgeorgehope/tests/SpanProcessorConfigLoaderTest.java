@@ -1,8 +1,8 @@
 package org.davidgeorgehope.tests;
 
-import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
-import org.davidgeorgehope.spanrename.config.SpanProcessorConfigLoader;
 import org.davidgeorgehope.spanrename.URLConfig;
+import org.davidgeorgehope.spanrename.config.SpanProcessorConfigLoader;
+import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -71,15 +72,15 @@ class SpanProcessorConfigLoaderTest {
     @Test
     void testGetConfig() {
         SpanProcessorConfigLoader instance = SpanProcessorConfigLoader.getInstance();
-        SpanProcessingStrategy config = instance.getConfig("com.example.ClassB", "methodB");
+        List<SpanProcessingStrategy> config = instance.getConfig("com.example.ClassB", "methodB");
         assertNotNull(config, "Config should not be null");
-        assertEquals("return", config.getReturnOrArgument());
-        assertEquals(false, config.getAddBaggage());
+        assertEquals("return", config.get(0).getReturnOrArgument());
+        assertEquals(false, config.get(0).getAddBaggage());
 
         config = instance.getConfig("com.movieapi.ApiServlet", "getUserFavorites");
         assertNotNull(config, "Config should not be null");
-        assertEquals("argument_0", config.getReturnOrArgument());
-        assertEquals(true, config.getAddBaggage());
+        assertEquals("argument_0", config.get(0).getReturnOrArgument());
+        assertEquals(true, config.get(0).getAddBaggage());
 
         config = instance.getConfig("NonExistentClass", "nonExistentMethod");
         assertNull(config, "Config should be null for non-existent class and method");
@@ -100,7 +101,7 @@ class SpanProcessorConfigLoaderTest {
     @Test
     void testGetAllInstrumentationConfigs() {
         SpanProcessorConfigLoader instance = SpanProcessorConfigLoader.getInstance();
-        Map<String, SpanProcessingStrategy> configs = instance.getAllInstrumentationConfigs();
+        Map<String, List<SpanProcessingStrategy>> configs = instance.getAllInstrumentationConfigs();
         assertEquals(2, configs.size(), "There should be 2 instrumentation configs");
     }
 
@@ -118,13 +119,13 @@ class SpanProcessorConfigLoaderTest {
         SpanProcessorConfigLoader configUtils = SpanProcessorConfigLoader.getInstance();
 
         // Test instrumentation configurations
-        SpanProcessingStrategy config1 = configUtils.getConfig("com.movieapi.ApiServlet", "getUserFavorites");
+        SpanProcessingStrategy config1 = configUtils.getConfig("com.movieapi.ApiServlet", "getUserFavorites").get(0);
         assertNotNull(config1);
         assertEquals("argument_0", config1.getReturnOrArgument());
         assertTrue(config1.getAddBaggage());
         assertEquals("renamespan", config1.getType());
 
-        SpanProcessingStrategy config2 = configUtils.getConfig("com.example.ClassB", "methodB");
+        SpanProcessingStrategy config2 = configUtils.getConfig("com.example.ClassB", "methodB").get(0);
         assertNotNull(config2);
         assertEquals("return", config2.getReturnOrArgument());
         assertFalse(config2.getAddBaggage());

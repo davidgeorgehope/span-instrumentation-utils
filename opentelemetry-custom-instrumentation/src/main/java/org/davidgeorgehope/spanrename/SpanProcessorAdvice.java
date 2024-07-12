@@ -5,6 +5,7 @@ import net.bytebuddy.asm.Advice;
 import org.davidgeorgehope.spanrename.config.SpanProcessorConfigLoader;
 import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -18,13 +19,22 @@ public class SpanProcessorAdvice {
                                     @Advice.Origin("#m") String method) {
 
         logger.info("Entering method: " + clazz.getName() + "." + method);
-        SpanProcessingStrategy config = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
+        List<SpanProcessingStrategy> config = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
         if (config == null) {
             logger.warning("No configuration found for: " + clazz.getName() + "." + method);
             return Optional.empty();
         }
 
-        return config.enterMethod(allArguments);
+        Optional<Span> resultSpan = Optional.empty();
+        for (SpanProcessingStrategy strategy : config) {
+
+            Optional<Span> span = strategy.enterMethod(allArguments);
+            if (span.isPresent()) {
+                resultSpan = span;
+            }
+        }
+
+        return resultSpan;
     }
 
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class, inline = false)
@@ -35,12 +45,14 @@ public class SpanProcessorAdvice {
                               @Advice.Enter Optional<Span> span) {
         logger.info("Exiting method: " + clazz.getName() + "." + method);
 
-        SpanProcessingStrategy config = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
-        if (config == null || !config.getReturnOrArgument().contains("return")) {
-            logger.warning("No return configuration found for: " + clazz.getName() + "." + method);
-            return;
-        }
+        List<SpanProcessingStrategy> config = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
 
-        config.exitMethod(returned, throwable, span);
+        for (SpanProcessingStrategy strategy : config) {
+            if (config == null || !strategy.getReturnOrArgument().contains("return")) {
+                logger.warning("No return configuration found for: " + clazz.getName() + "." + method);
+                return;
+            }
+            strategy.exitMethod(returned, throwable, span);
+        }
     }
 }

@@ -27,6 +27,8 @@ public class SpanRenameStrategy extends SpanProcessingStrategy {
     public void processValue(Object value) {
         String info = (value == null) ? "null" : value.toString();
         renameActiveSpan(info);
-        addBaggage("business_transaction", info);
+        if(getAddBaggage()) {
+            addBaggage("business_transaction", info);
+        }
     }
 }

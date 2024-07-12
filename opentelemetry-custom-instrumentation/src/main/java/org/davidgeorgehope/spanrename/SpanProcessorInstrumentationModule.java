@@ -61,18 +61,17 @@ public final class SpanProcessorInstrumentationModule extends InstrumentationMod
         List<TypeInstrumentation> typeInstrumentations = new ArrayList<>();
         SpanProcessorConfigLoader.getInstance();
         logger.warning("LOADED CONFIGURATION");
-        Map<String, SpanProcessingStrategy> configs = SpanProcessorConfigLoader.getInstance().getAllInstrumentationConfigs();
+        Map<String, List<SpanProcessingStrategy>> configs = SpanProcessorConfigLoader.getInstance().getAllInstrumentationConfigs();
         logger.warning("CONFIG "+configs);
 
-        for (Map.Entry<String, SpanProcessingStrategy> entry : configs.entrySet()) {
-            String className = entry.getValue().getClassName();
-            String methodName = entry.getValue().getMethodName();
+        for (Map.Entry<String, List<SpanProcessingStrategy>> entry : configs.entrySet()) {
+            String className = entry.getValue().get(0).getClassName();
+            String methodName = entry.getValue().get(0).getMethodName();
             logger.warning("CLASS "+className + "   "+methodName);
 
             typeInstrumentations.add(createTypeInstrumentation(className, methodName));
         }
         logger.warning("CLASS "+typeInstrumentations);
-        //return singletonList(new SpanRenameTypeInstrumentation());
 
         return typeInstrumentations;
     }

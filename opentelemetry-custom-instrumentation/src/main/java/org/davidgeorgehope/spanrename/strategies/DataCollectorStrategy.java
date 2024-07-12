@@ -18,14 +18,18 @@ public class DataCollectorStrategy extends SpanProcessingStrategy {
         Span currentSpan = Span.current();
         String attributeName = getMethodName() + "_" + argument.getClass().getName();
         setSpanAttribute(currentSpan, attributeName, argument);
-        addBaggage(attributeName, argument.toString());
+        if(getAddBaggage()) {
+            addBaggage(attributeName, argument.toString());
+        }
         return Optional.empty();
     }
 
     @Override
     public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
-        Span currentSpan = Span.current();
+       Span currentSpan = Span.current();
        setSpanAttribute(currentSpan, getMethodName(), returned);
-       addBaggage(getMethodName(), returned.toString());
+       if(getAddBaggage()) {
+           addBaggage(getMethodName(), returned.toString());
+       }
     }
 }

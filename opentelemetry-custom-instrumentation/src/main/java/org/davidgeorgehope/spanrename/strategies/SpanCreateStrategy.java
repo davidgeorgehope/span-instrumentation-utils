@@ -18,13 +18,15 @@ public class SpanCreateStrategy extends SpanProcessingStrategy {
     public Optional<Span> enterStrategy(Object argument) {
         Tracer tracer = GlobalOpenTelemetry.getTracer("spanrename-demo", "semver:1.0.0");
         Span span = tracer.spanBuilder(argument.toString()).startSpan();
+        if(getAddBaggage()) {
+            addBaggage("business_transaction", argument.toString());
+        }
         return Optional.of(span);
     }
 
     @Override
     public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
         if(span.isPresent()) {
-
             if (throwable != null) {
                 span.get().setStatus(StatusCode.ERROR, "Exception thrown in method");
             }
