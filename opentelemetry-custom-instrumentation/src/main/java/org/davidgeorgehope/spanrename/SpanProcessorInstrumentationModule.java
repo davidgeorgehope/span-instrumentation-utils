@@ -12,6 +12,7 @@ import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
+import org.davidgeorgehope.spanrename.context.OtelContextHolder;
 import org.davidgeorgehope.spanrename.factories.SpanProcessingStrategyFactory;
 import org.davidgeorgehope.spanrename.strategies.DataCollectorStrategy;
 import org.davidgeorgehope.spanrename.strategies.SpanCreateStrategy;
@@ -47,7 +48,8 @@ public final class SpanProcessorInstrumentationModule extends InstrumentationMod
                 SpanRenameStrategy.class.getName(),
                 SpanProcessingStrategy.class.getName(),
                 SpanCreateStrategy.class.getName(),
-                DataCollectorStrategy.class.getName()
+                DataCollectorStrategy.class.getName(),
+                OtelContextHolder.class.getName()
         );
     }
 

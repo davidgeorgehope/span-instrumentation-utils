@@ -2,6 +2,7 @@ package org.davidgeorgehope.tests;
 
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.trace.ReadWriteSpan;
+import org.davidgeorgehope.spanrename.context.OtelContextHolder;
 import org.davidgeorgehope.spanrename.strategies.SpanRenameStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ public class SpanRenameStrategyTest {
 
     @BeforeEach
     public void setup() {
-        strategy = new SpanRenameStrategy("argument_0", true, "TestClassName", "testMethod", "type");
+        strategy = new SpanRenameStrategy("return", true, "TestClassName", "testMethod", "type");
     }
 
     @Test
@@ -22,7 +23,8 @@ public class SpanRenameStrategyTest {
         ReadWriteSpan span = MockSpan.createRealSpan();
         try (Scope scope = span.makeCurrent()) {
             String spanName = "testValue";
-            strategy.processValue(spanName);
+            OtelContextHolder otelContextHolder = new OtelContextHolder();
+            strategy.processValue(spanName,otelContextHolder);
             String updatedName = span.toSpanData().getName();
             assertEquals("testValue", updatedName);
         } finally {

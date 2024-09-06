@@ -1,11 +1,9 @@
 package org.davidgeorgehope.tests;
 
-import io.opentelemetry.api.trace.Span;
+import org.davidgeorgehope.spanrename.context.OtelContextHolder;
 import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -15,14 +13,14 @@ public class SpanProcessingStrategyTest {
 
     @BeforeEach
     public void setup() {
-        strategy = new SpanProcessingStrategy("argument_0.getValue()", true, "TestClassName", "testMethod", "type") {
+        strategy = new SpanProcessingStrategy("return.getValue()", true, "TestClassName", "testMethod", "type") {
             @Override
-            public Optional<Span> enterStrategy(Object arguments) {
+            public OtelContextHolder enterStrategy(Object arguments, OtelContextHolder otelContextHolder) {
                 return null;
             }
 
             @Override
-            public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
+            public void exitStrategy(Object returned, Throwable throwable, OtelContextHolder otelContextHolder) {
             }
         };
     }

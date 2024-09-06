@@ -33,6 +33,7 @@ class SpanProcessorConfigLoaderTest {
                     "    type: datacollector\n" +
                     "  - class: com.example.ClassB\n" +
                     "    method: methodB\n" +
+                    "    returnOrArgument: return\n" +
                     "    type: spancreate\n" +
                     "url:\n" +
                     "  - currentUrl: GET blah/blah\n" +

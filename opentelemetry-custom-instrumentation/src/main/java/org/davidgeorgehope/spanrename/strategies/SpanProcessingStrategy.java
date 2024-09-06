@@ -3,11 +3,13 @@ package org.davidgeorgehope.spanrename.strategies;
 import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
+import org.davidgeorgehope.spanrename.context.OtelContextHolder;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public abstract class SpanProcessingStrategy {
@@ -47,20 +49,20 @@ public abstract class SpanProcessingStrategy {
         return type;
     }
 
-    public Optional<Span> enterMethod(Object[] allArguments){
+    public void enterMethod(Object[] allArguments, OtelContextHolder otelContextHolder){
         Object objectToProcess;
         try {
             int argumentIndex = Integer.parseInt(getReturnOrArgument().split("argument_")[1]);
             objectToProcess = allArguments[argumentIndex];
         } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
             logger.warning("Invalid argument index specified in configuration: " + getReturnOrArgument());
-            return null;
+            return;
         }
 
-        return enterStrategy(getObject(objectToProcess));
+        enterStrategy(getObject(objectToProcess),otelContextHolder);
     }
-    public void exitMethod(Object returned, Throwable throwable, Optional<Span> span){
-        exitStrategy(getObject(returned),throwable,span);
+    public void exitMethod(Object returned, Throwable throwable, OtelContextHolder otelContextHolder){
+        exitStrategy(getObject(returned),throwable,otelContextHolder);
     }
 
     public void setSpanAttribute(Span span, String attributeName, Object argument) {
@@ -87,18 +89,31 @@ public abstract class SpanProcessingStrategy {
         }
     }
 
-    public void addBaggage(String key, String value) {
-        Baggage currentBaggage = Baggage.current();
-        Baggage updatedBaggage = currentBaggage.toBuilder().put(key, value).build();
-        updatedBaggage.makeCurrent();
-        logger.warning("Baggage item added: " + key + " = " + value);
 
-        Span currentSpan = Span.current();
-        updatedBaggage.asMap().forEach((s, baggageEntry) -> {
-            currentSpan.setAttribute(s, baggageEntry.getValue());
-        });
+   public Scope addBaggage(String key, String value) {
+       Context context = Context.current();
+       Baggage currentBaggage = Baggage.fromContext(context);
+       Baggage updatedBaggage = currentBaggage.toBuilder().put(key, value).build();
+
+       logger.warning("Baggage item added: " + key + " = " + value);
+
+       Span currentSpan = Span.fromContext(context);
+       if (currentSpan != null) {
+           // Add baggage entries as span attributes
+           updatedBaggage.asMap().forEach((s, baggageEntry) -> {
+               currentSpan.setAttribute(s, baggageEntry.getValue());
+           });
+
+           // Optionally, you can add a specific attribute to indicate this span has been processed
+           currentSpan.setAttribute("baggage_processed", true);
+       }
+
+       // Create a new context with the updated baggage
+       Context updatedContext = context.with(updatedBaggage);
+
+       // Make the updated context current for the rest of the execution
+       return updatedContext.makeCurrent();
     }
-
 
     public Object getObject(Object objectToProcess) {
         String input = getReturnOrArgument();
@@ -137,8 +152,8 @@ public abstract class SpanProcessingStrategy {
         }
     }
 
-    public abstract Optional<Span> enterStrategy(Object arguments);
+    public abstract OtelContextHolder enterStrategy(Object arguments, OtelContextHolder otelContextHolder);
 
-    public abstract void exitStrategy(Object returned, Throwable throwable, Optional<Span> span);
+    public abstract void exitStrategy(Object returned, Throwable throwable, OtelContextHolder otelContextHolder);
 
 }

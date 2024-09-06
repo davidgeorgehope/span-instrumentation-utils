@@ -1,8 +1,8 @@
 package org.davidgeorgehope.spanrename.strategies;
 
 import io.opentelemetry.api.trace.Span;
+import org.davidgeorgehope.spanrename.context.OtelContextHolder;
 
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public class DataCollectorStrategy extends SpanProcessingStrategy {
@@ -14,22 +14,23 @@ public class DataCollectorStrategy extends SpanProcessingStrategy {
     }
 
     @Override
-    public Optional<Span> enterStrategy(Object argument) {
+    public OtelContextHolder enterStrategy(Object argument,OtelContextHolder otelContextHolder) {
         Span currentSpan = Span.current();
         String attributeName = getMethodName() + "_" + argument.getClass().getName();
         setSpanAttribute(currentSpan, attributeName, argument);
         if(getAddBaggage()) {
-            addBaggage(attributeName, argument.toString());
+            otelContextHolder.setScope(addBaggage(attributeName, argument.toString()));
         }
-        return Optional.empty();
+        return otelContextHolder;
     }
 
     @Override
-    public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
-       Span currentSpan = Span.current();
+    public void exitStrategy(Object returned, Throwable throwable, OtelContextHolder otelContextHolder) {
+      Span currentSpan = Span.current();
        setSpanAttribute(currentSpan, getMethodName(), returned);
-       if(getAddBaggage()) {
-           addBaggage(getMethodName(), returned.toString());
-       }
+
+        if(getAddBaggage()) {
+            otelContextHolder.setScope(addBaggage(getMethodName(), returned.toString()));
+        }
     }
 }

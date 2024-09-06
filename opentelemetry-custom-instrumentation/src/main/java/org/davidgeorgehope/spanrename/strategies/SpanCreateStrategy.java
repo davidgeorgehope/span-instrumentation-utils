@@ -3,10 +3,8 @@ package org.davidgeorgehope.spanrename.strategies;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
-
-import java.util.Optional;
+import org.davidgeorgehope.spanrename.context.OtelContextHolder;
 
 public class SpanCreateStrategy extends SpanProcessingStrategy {
 
@@ -15,22 +13,16 @@ public class SpanCreateStrategy extends SpanProcessingStrategy {
     }
 
     @Override
-    public Optional<Span> enterStrategy(Object argument) {
+    public OtelContextHolder enterStrategy(Object argument, OtelContextHolder otelContextHolder) {
         Tracer tracer = GlobalOpenTelemetry.getTracer("spanrename-demo", "semver:1.0.0");
         Span span = tracer.spanBuilder(argument.toString()).startSpan();
+        otelContextHolder.setSpan(span);
         if(getAddBaggage()) {
-            addBaggage("business_transaction", argument.toString());
+            otelContextHolder.setScope(addBaggage("business_transaction", argument.toString()));
         }
-        return Optional.of(span);
+        return otelContextHolder;
     }
 
     @Override
-    public void exitStrategy(Object returned, Throwable throwable, Optional<Span> span) {
-        if(span.isPresent()) {
-            if (throwable != null) {
-                span.get().setStatus(StatusCode.ERROR, "Exception thrown in method");
-            }
-            span.get().end();
-        }
-    }
+    public void exitStrategy(Object returned, Throwable throwable, OtelContextHolder otelContextHolder) {}
 }
