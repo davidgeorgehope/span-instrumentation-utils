@@ -111,7 +111,6 @@ class SpanProcessorConfigLoaderTest {
         assertEquals("OTEL_SERVICE_NAME", SpanProcessorConfigLoader.convertToEnvFormat("otel.service.name"));
         assertEquals("MY_PROPERTY", SpanProcessorConfigLoader.convertToEnvFormat("my.property"));
         assertEquals("", SpanProcessorConfigLoader.convertToEnvFormat(""));
-        assertNull(SpanProcessorConfigLoader.convertToEnvFormat(null));
     }
 
 

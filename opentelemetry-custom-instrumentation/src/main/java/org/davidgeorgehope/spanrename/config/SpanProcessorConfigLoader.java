@@ -6,32 +6,27 @@ import org.davidgeorgehope.spanrename.strategies.SpanCreateStrategy;
 import org.davidgeorgehope.spanrename.strategies.SpanProcessingStrategy;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 public class SpanProcessorConfigLoader {
-
-    private static SpanProcessorConfigLoader instance;
-    private static Logger logger = Logger.getLogger(SpanProcessorConfigLoader.class.getName());
+    private static final Logger logger = Logger.getLogger(SpanProcessorConfigLoader.class.getName());
+    private static volatile SpanProcessorConfigLoader instance;
 
     private final Map<String, List<SpanProcessingStrategy>> instrumentationConfigs = new HashMap<>();
     private final Map<String, URLConfig> urlConfigs = new HashMap<>();
 
-    // Private constructor to prevent instantiation
     private SpanProcessorConfigLoader(String fileName) {
-        loadYamlConfig(fileName);
+        loadConfig(fileName);
     }
 
-    // Public method to provide access to the instance
     public static SpanProcessorConfigLoader getInstance() {
         if (instance == null) {
             synchronized (SpanProcessorConfigLoader.class) {
                 if (instance == null) {
-                    instance = new SpanProcessorConfigLoader(SpanProcessorConfigLoader.getSystemProperty("yaml.file.name"));
+                    instance = new SpanProcessorConfigLoader(getSystemProperty("yaml.file.name"));
                 }
             }
         }
@@ -39,23 +34,21 @@ public class SpanProcessorConfigLoader {
     }
 
     public List<SpanProcessingStrategy> getConfig(String className, String methodName) {
-        return instrumentationConfigs.getOrDefault(className + "." + methodName, null);
+        return instrumentationConfigs.get(className + "." + methodName);
     }
 
     public URLConfig getUrlConfig(String currentUrl) {
-        return urlConfigs.getOrDefault(currentUrl, null);
+        return urlConfigs.get(currentUrl);
     }
 
     public String getOtelServiceName() {
         return getSystemProperty("otel.service.name");
     }
 
-    public void loadYamlConfig(String filePath) {
-        logger.warning("loadYamlConfig 1");
+    private void loadConfig(String filePath) {
+        logger.info("Loading configuration from: " + filePath);
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            logger.warning("loadYamlConfig 2");
-
             String line;
             String currentClass = null;
             String currentMethod = null;
@@ -67,15 +60,12 @@ public class SpanProcessorConfigLoader {
             Pattern regex = null;
 
             while ((line = reader.readLine()) != null) {
-                logger.warning("loadYamlConfig 3");
-
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("#")) {
                     continue;
                 }
 
                 if (line.startsWith("instrumentation:")) {
-                    // Reset for new instrumentation block
                     currentClass = null;
                     currentMethod = null;
                     returnOrArgument = null;
@@ -88,11 +78,10 @@ public class SpanProcessorConfigLoader {
                 } else if (line.startsWith("returnOrArgument:")) {
                     returnOrArgument = line.split(":")[1].trim();
                 } else if (line.startsWith("addBaggage:")) {
-                    addBaggage = line.split(":")[1].trim().equalsIgnoreCase("true");
+                    addBaggage = Boolean.parseBoolean(line.split(":")[1].trim());
                 } else if (line.startsWith("type:")) {
                     type = line.split(":")[1].trim();
                 } else if (line.startsWith("url:")) {
-                    // Reset for new URL block
                     currentUrl = null;
                     name = null;
                     regex = null;
@@ -105,21 +94,7 @@ public class SpanProcessorConfigLoader {
                 }
 
                 if (currentClass != null && currentMethod != null && returnOrArgument != null && addBaggage != null && type != null) {
-
-                    String key = currentClass + "." + currentMethod;
-
-                    // Check for existing spancreate strategy
-                    boolean spanCreateExists = instrumentationConfigs.containsKey(key) &&
-                            instrumentationConfigs.get(key).stream().anyMatch(config -> config instanceof SpanCreateStrategy);
-
-                    if (type.equalsIgnoreCase("spancreate") && spanCreateExists) {
-                        logger.warning("Ignoring additional spancreate strategy for " + key);
-                    } else {
-                        SpanProcessingStrategy config = SpanProcessingStrategyFactory.createStrategy(returnOrArgument, addBaggage, currentClass, currentMethod, type);
-                        instrumentationConfigs.computeIfAbsent(key, k -> new ArrayList<>()).add(config);
-                    }
-
-                    // Reset for next block
+                    processInstrumentationConfig(currentClass, currentMethod, returnOrArgument, addBaggage, type);
                     currentClass = null;
                     currentMethod = null;
                     returnOrArgument = null;
@@ -128,62 +103,49 @@ public class SpanProcessorConfigLoader {
                 }
 
                 if (currentUrl != null && name != null && regex != null) {
-                    URLConfig urlConfig = new URLConfig(currentUrl, name, regex);
-                    urlConfigs.put(currentUrl, urlConfig);
-                    logger.warning("loadYamlConfig URL: " + currentUrl);
-
-                    // Reset for next block
+                    urlConfigs.put(currentUrl, new URLConfig(currentUrl, name, regex));
+                    logger.info("Added URL configuration: " + currentUrl);
                     currentUrl = null;
                     name = null;
                     regex = null;
                 }
             }
-        } catch (FileNotFoundException e) {
-            logger.warning("File not found: " + filePath);
-            logger.warning("File path: " + filePath);
-            logger.warning("File exists: " + new File(filePath).exists());
-            logger.warning("Is directory: " + new File(filePath).isDirectory());
-            logger.warning("Is file: " + new File(filePath).isFile());
-            logger.warning("Readable: " + new File(filePath).canRead());
-            e.printStackTrace();
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Error loading configuration file: " + filePath, e);
+        }
+    }
+
+    private void processInstrumentationConfig(String className, String methodName, String returnOrArgument, boolean addBaggage, String type) {
+        String key = className + "." + methodName;
+        List<SpanProcessingStrategy> strategies = instrumentationConfigs.computeIfAbsent(key, k -> new ArrayList<>());
+
+        boolean spanCreateExists = strategies.stream().anyMatch(config -> config instanceof SpanCreateStrategy);
+
+        if (!"spancreate".equalsIgnoreCase(type) || !spanCreateExists) {
+            SpanProcessingStrategy config = SpanProcessingStrategyFactory.createStrategy(returnOrArgument, addBaggage, className, methodName, type);
+            strategies.add(config);
+        } else {
+            logger.warning("Ignoring additional spancreate strategy for " + key);
         }
     }
 
     public Map<String, List<SpanProcessingStrategy>> getAllInstrumentationConfigs() {
-        return instrumentationConfigs;
+        return new HashMap<>(instrumentationConfigs);
     }
 
     public Map<String, URLConfig> getAllUrlConfigs() {
-        return urlConfigs;
+        return new HashMap<>(urlConfigs);
     }
 
     public static String getSystemProperty(String property) {
-        try {
-            // First, check system properties
-            String value = System.getProperty(property);
-
-            // If no system property found, check environment variables
-            if (value == null) {
-                value = System.getenv(convertToEnvFormat(property));
-            }
-
-            if (value == null) {
-                value = "";
-            }
-
-            return value;
-        } catch (Exception e) {
-            return "";
+        String value = System.getProperty(property);
+        if (value == null) {
+            value = System.getenv(convertToEnvFormat(property));
         }
+        return value != null ? value : "";
     }
 
     public static String convertToEnvFormat(String configKey) {
-        if (configKey == null || configKey.isEmpty()) {
-            return configKey;
-        }
-        return configKey.replace('.', '_').toUpperCase();
+        return configKey != null ? configKey.replace('.', '_').toUpperCase() : "";
     }
-
 }

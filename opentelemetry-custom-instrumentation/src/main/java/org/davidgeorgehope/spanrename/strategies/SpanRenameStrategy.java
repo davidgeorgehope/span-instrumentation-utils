@@ -30,7 +30,6 @@ public class SpanRenameStrategy extends SpanProcessingStrategy {
         Baggage baggage = Baggage.fromContext(context);
         String businessTransaction = baggage.getEntryValue("business_transaction");
         if (businessTransaction == null) {
-            // Use the business transaction value
             renameActiveSpan(info);
         }
 

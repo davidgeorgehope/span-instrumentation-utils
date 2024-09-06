@@ -10,34 +10,14 @@ import java.util.List;
 import java.util.logging.Logger;
 
 public class SpanProcessorAdvice {
-
-    private static Logger logger = Logger.getLogger(SpanProcessorAdvice.class.getName());
+    private static final Logger logger = Logger.getLogger(SpanProcessorAdvice.class.getName());
 
     @Advice.OnMethodEnter(suppress = Throwable.class, inline = false)
     public static List<OtelContextHolder> enterMethod(@Advice.AllArguments Object[] allArguments,
-                                    @Advice.Origin("#t") Class<?> clazz,
-                                    @Advice.Origin("#m") String method) {
-
-        List<OtelContextHolder> otelContextHolderList = new ArrayList<>();
+                                                      @Advice.Origin("#t") Class<?> clazz,
+                                                      @Advice.Origin("#m") String method) {
         logger.info("Entering method: " + clazz.getName() + "." + method);
-        List<SpanProcessingStrategy> config = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
-        if (config == null) {
-            logger.warning("No configuration found for: " + clazz.getName() + "." + method);
-            return otelContextHolderList;
-        }
-
-        for (SpanProcessingStrategy strategy : config) {
-            OtelContextHolder otelContextHolder = new OtelContextHolder();
-
-            if (config == null || !strategy.getReturnOrArgument().contains("argument")) {
-                logger.warning("No argument configuration found for: " + clazz.getName() + "." + method);
-                continue;
-            }
-            strategy.enterMethod(allArguments, otelContextHolder);
-            otelContextHolderList.add(otelContextHolder);
-        }
-
-        return otelContextHolderList;
+        return processMethod(clazz, method, allArguments, null, null, "argument");
     }
 
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class, inline = false)
@@ -45,25 +25,38 @@ public class SpanProcessorAdvice {
                               @Advice.Thrown Throwable throwable,
                               @Advice.Origin("#t") Class<?> clazz,
                               @Advice.Origin("#m") String method,
-                              @Advice.Enter List<OtelContextHolder> otelContextHolderList) {
+                              @Advice.Enter List<OtelContextHolder> enteredContexts) {
         logger.info("Exiting method: " + clazz.getName() + "." + method);
+        List<OtelContextHolder> exitContexts = processMethod(clazz, method, null, returned, throwable, "return");
 
+        List<OtelContextHolder> allContexts = new ArrayList<>(enteredContexts);
+        allContexts.addAll(exitContexts);
 
-        List<SpanProcessingStrategy> config = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
+        allContexts.forEach(OtelContextHolder::closeContext);
+    }
 
-        for (SpanProcessingStrategy strategy : config) {
-            OtelContextHolder otelContextHolder = new OtelContextHolder();
+    private static List<OtelContextHolder> processMethod(Class<?> clazz, String method, Object[] arguments,
+                                                         Object returned, Throwable throwable, String processingType) {
+        List<OtelContextHolder> contextHolders = new ArrayList<>();
+        List<SpanProcessingStrategy> strategies = SpanProcessorConfigLoader.getInstance().getConfig(clazz.getName(), method);
 
-            if (config == null || !strategy.getReturnOrArgument().contains("return")) {
-                logger.warning("No return configuration found for: " + clazz.getName() + "." + method);
-                continue;
-            }
-            strategy.exitMethod(returned, throwable, otelContextHolder);
-            otelContextHolderList.add(otelContextHolder);
+        if (strategies == null || strategies.isEmpty()) {
+            logger.warning("No configuration found for: " + clazz.getName() + "." + method);
+            return contextHolders;
         }
 
-        for(OtelContextHolder otelContextHolder:otelContextHolderList){
-            otelContextHolder.closeContext();
-        }
+        strategies.stream()
+                .filter(strategy -> strategy.getReturnOrArgument().contains(processingType))
+                .forEach(strategy -> {
+                    OtelContextHolder contextHolder = new OtelContextHolder();
+                    if ("argument".equals(processingType)) {
+                        strategy.enterMethod(arguments, contextHolder);
+                    } else {
+                        strategy.exitMethod(returned, throwable, contextHolder);
+                    }
+                    contextHolders.add(contextHolder);
+                });
+
+        return contextHolders;
     }
 }

@@ -62,37 +62,26 @@ public final class SpanProcessorInstrumentationModule extends InstrumentationMod
     public List<TypeInstrumentation> typeInstrumentations() {
         List<TypeInstrumentation> typeInstrumentations = new ArrayList<>();
         SpanProcessorConfigLoader.getInstance();
-        logger.warning("LOADED CONFIGURATION");
         Map<String, List<SpanProcessingStrategy>> configs = SpanProcessorConfigLoader.getInstance().getAllInstrumentationConfigs();
-        logger.warning("CONFIG "+configs);
 
         for (Map.Entry<String, List<SpanProcessingStrategy>> entry : configs.entrySet()) {
             String className = entry.getValue().get(0).getClassName();
             String methodName = entry.getValue().get(0).getMethodName();
-            logger.warning("CLASS "+className + "   "+methodName);
-
             typeInstrumentations.add(createTypeInstrumentation(className, methodName));
         }
-        logger.warning("CLASS "+typeInstrumentations);
-
         return typeInstrumentations;
     }
 
     public static TypeInstrumentation createTypeInstrumentation(String instrumentationClass, String instrumentationMethod) {
-        logger.warning("createTypeInstrumentation");
         return new TypeInstrumentation() {
 
             @Override
             public ElementMatcher<TypeDescription> typeMatcher() {
-                logger.warning("TypeInstrumentation matcher" +instrumentationClass);
                 return ElementMatchers.named(instrumentationClass);
             }
 
             @Override
             public void transform(TypeTransformer typeTransformer) {
-                logger.warning("TypeInstrumentation transform>" +instrumentationMethod + "<");
-                logger.warning("TypeInstrumentation transform" +typeTransformer);
-
                 typeTransformer.applyAdviceToMethod(namedOneOf(instrumentationMethod), SpanProcessorAdvice.class.getName());
             }
         };
